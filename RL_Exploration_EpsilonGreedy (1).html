@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ε-жадная стратегия</title>
+<style>
+:root { color-scheme: light; }
+* {box-sizing: border-box;}
+body {margin:0; padding:22px 20px 24px; background:#fff; color:#262626; font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif; }
+.figure {max-width:1070px;margin:0 auto;}
+svg {width:100%;height:auto;display:block;overflow:visible;}
+.param-row {display:flex;flex-wrap:wrap;gap:18px 32px;margin:5px auto 0;padding:17px 8px 0;border-top:1px solid #e7e7e7;align-items:start;justify-content:center;}
+.parameter {min-width:248px;flex:0 1 390px;}
+.parameter-top {display:flex;justify-content:space-between;align-items:baseline;gap:14px;margin-bottom:8px;}
+.parameter label {font-size:15px;font-weight:600;}
+.parameter output {font:600 15px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace;font-variant-numeric:tabular-nums;}
+.parameter input {width:100%;cursor:pointer;accent-color:#555;display:block;margin:0;height:17px;}
+.parameter small {display:block;font-size:12px;line-height:1.45;color:#656565;margin-top:7px;}
+@media (max-width:600px) {body{padding:9px 5px 18px}.param-row{margin:0 9px;padding-top:12px;gap:13px}.parameter{min-width:210px}.parameter label{font-size:13px}.parameter small{font-size:11px}}
+</style>
+</head>
+<body>
+<main class="figure">
+<svg id="chart"></svg>
+<section class="param-row" aria-label="Параметры шума"><div class="parameter"><div class="parameter-top"><label for="epsilon">ε</label><output id="epsValue">0.20</output></div><input id="epsilon" type="range" min="0" max="1" step="0.01" value="0.2" aria-label="ε"><small>Вероятность заменить действие случайным из диапазона [−1, 1].</small></div></section>
+</main>
+<script>
+
+'use strict';
+const NS='http://www.w3.org/2000/svg';
+const svg = document.getElementById('chart');
+const W=1000,H=470, m={left:88,right:20,top:54,bottom:72};
+const pw=W-m.left-m.right, ph=H-m.top-m.bottom;
+const X=t=>m.left+(t/150)*pw;
+const Y=v=>m.top+((1.2-v)/2.4)*ph;
+const T=150;
+const base=Array.from({length:T},(_,i)=>0.5*Math.sin(2*Math.PI*i/T));
+function el(tag,attrs={},parent=svg){
+ const e=document.createElementNS(NS,tag);
+ for(const [key,value] of Object.entries(attrs)){if(key==='text')e.textContent=value;else e.setAttribute(key,value);}
+ parent.appendChild(e);return e;
+}
+function line(x1,y1,x2,y2,stroke,width=1,dash=null,parent=svg){
+ const p=el('line',{x1,y1,x2,y2,stroke,'stroke-width':width},parent);
+ if(dash)p.setAttribute('stroke-dasharray',dash);
+ return p;
+}
+function textAt(x,y,t,extra={},parent=svg){
+ return el('text',{x,y,text:t,'font-family':'DejaVu Sans, Arial, sans-serif','font-size':15,fill:'#222',...extra},parent);
+}
+function drawStatic(title, sampleColor, sampleLabel){
+ svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+ svg.setAttribute('role','img');
+ svg.setAttribute('aria-label',title+': сравнение действия политики и действия с шумом');
+ const defs=el('defs');const cl=el('clipPath',{id:'plotClip'},defs);
+ el('rect',{x:m.left,y:m.top,width:pw,height:ph},cl);
+ el('rect',{x:m.left,y:m.top,width:pw,height:ph,fill:'#fff'});
+ for(let v=-1;v<=1.0001;v+=.5){
+  const yy=Y(v);line(m.left,yy,m.left+pw,yy,'#e2e2e2',1);
+  textAt(m.left-12,yy+5,Math.abs(v)<1e-8?'0.0':v.toFixed(1).replace('-', '−'),{'text-anchor':'end','font-size':15});
+ }
+ for(let t=0;t<=140;t+=20){
+  const xx=X(t);line(xx,m.top,xx,m.top+ph,'#e7e7e7',1);
+  textAt(xx,m.top+ph+26,String(t),{'text-anchor':'middle','font-size':14});
+ }
+ line(m.left,Y(0),m.left+pw,Y(0),'#aaa',1.4,'6 5');
+ el('rect',{x:m.left,y:m.top,width:pw,height:ph,fill:'none',stroke:'#444','stroke-width':1.2});
+ textAt(W/2,33,title,{'text-anchor':'middle','font-size':23,'font-weight':'400'});
+ textAt(W/2,H-17,'Время (шаги)',{'text-anchor':'middle','font-size':17});
+ const ylabel=textAt(26,m.top+ph/2,'Значение действия',{'text-anchor':'middle','font-size':17});
+ ylabel.setAttribute('transform',`rotate(-90 26 ${m.top+ph/2})`);
+ const pathsG=el('g',{'clip-path':'url(#plotClip)'});
+ const basePath=el('path',{fill:'none',stroke:'#161616','stroke-width':2.25,'stroke-dasharray':'8 5','stroke-linecap':'round','stroke-linejoin':'round'},pathsG);
+ basePath.setAttribute('d',path(base));
+ const samplePath=el('path',{fill:'none',stroke:sampleColor,'stroke-width':1.75,'stroke-opacity':'.9','stroke-linejoin':'round','stroke-linecap':'round'},pathsG);
+ // Same compact legend arrangement as matplotlib's upper-right legend.
+ const legendWidth=Math.max(229, Math.min(269, Math.round(sampleLabel.length*6.7+68)));
+ const lx=m.left+pw-legendWidth-10,ly=m.top+10;
+ el('rect',{x:lx,y:ly,width:legendWidth,height:62,fill:'#fff',stroke:'#d7d7d7','stroke-width':1,rx:3});
+ line(lx+13,ly+22,lx+43,ly+22,'#171717',2.6,'8 5');
+ textAt(lx+51,ly+27,'Действие политики π(s)',{'font-size':14});
+ line(lx+13,ly+45,lx+43,ly+45,sampleColor,2.6);
+ textAt(lx+51,ly+50,sampleLabel,{'font-size':14});
+ return samplePath;
+}
+function path(vals){return vals.map((v,i)=>`${i?'L':'M'}${X(i).toFixed(2)} ${Y(v).toFixed(2)}`).join(' ')}
+function setSamples(p,vals){p.setAttribute('d',path(vals));}
+function displayValue(id,value,digits=2){document.getElementById(id).textContent=Number(value).toFixed(digits);}
+
+const randomDecisions=[0.374540119,0.950714306,0.731993942,0.598658484,0.15601864,0.15599452,0.058083612,0.866176146,0.601115012,0.708072578,0.020584494,0.969909852,0.832442641,0.212339111,0.181824967,0.18340451,0.304242243,0.524756432,0.431945019,0.29122914,0.611852895,0.139493861,0.292144649,0.366361843,0.456069984,0.785175961,0.199673782,0.514234438,0.592414569,0.046450413,0.607544852,0.170524124,0.065051593,0.948885537,0.965632033,0.808397348,0.304613769,0.097672114,0.684233027,0.440152494,0.122038235,0.49517691,0.034388521,0.909320402,0.258779982,0.662522284,0.311711076,0.520068021,0.546710279,0.184854456,0.969584628,0.775132823,0.939498942,0.89482735,0.597899979,0.921874235,0.088492502,0.195982862,0.045227289,0.325330331,0.38867729,0.271349032,0.828737509,0.356753327,0.28093451,0.542696083,0.140924225,0.802196981,0.074550644,0.986886937,0.772244769,0.198715682,0.005522117,0.815461428,0.706857344,0.729007168,0.771270347,0.074044652,0.358465729,0.11586906,0.863103426,0.623298127,0.330898025,0.06355835,0.310982322,0.325183322,0.729606178,0.637557471,0.887212743,0.472214925,0.119594246,0.713244787,0.760785049,0.561277198,0.77096718,0.493795596,0.522732829,0.427541018,0.025419127,0.107891427,0.031429186,0.636410411,0.314355981,0.508570691,0.907566474,0.249292229,0.410382923,0.755551139,0.228798165,0.07697991,0.289751453,0.161221287,0.929697652,0.80812038,0.633403757,0.87146059,0.803672077,0.186570059,0.892558998,0.539342242,0.807440155,0.8960913,0.318003475,0.110051925,0.227935163,0.427107789,0.818014766,0.860730583,0.006952131,0.510747303,0.417411003,0.22210781,0.119865367,0.337615171,0.942909704,0.323202932,0.518790622,0.703018959,0.363629602,0.971782083,0.962447295,0.251782296,0.497248506,0.30087831,0.284840494,0.036886947,0.609564334,0.502679023,0.051478751,0.278646464];
+const randomActions=[-0.804932797,0.522499433,-0.506124054,-0.723736625,0.816531772,-0.520876219,-0.710210256,0.613187596,0.965483829,0.27132147,-0.021094479,0.098054864,0.091119916,-0.531847854,0.971300908,-0.515889457,-0.695783155,0.065372161,-0.225986463,0.376654767,-0.254145687,0.344271095,0.554715836,0.216068606,0.230464073,0.285975203,0.523239231,0.500312297,-0.426339021,-0.524724912,-0.870426449,0.456432697,-0.264433735,0.107652961,-0.30694274,-0.65477408,0.083865275,0.264611661,0.651115227,0.42213394,0.267059422,-0.846926877,0.071549368,0.988609645,0.198887794,-0.640522394,-0.271243196,0.727673454,-0.099488998,-0.81942046,-0.728680447,0.431348965,0.841896501,0.870728845,0.872605818,0.34554809,0.670604991,-0.35843987,-0.626962979,-0.937444827,0.718208981,-0.634942412,0.456618893,0.934736557,0.796631492,0.668743006,-0.918449717,-0.277081503,0.181785886,-0.119576479,0.520373043,0.355128724,-0.966824342,-0.635915309,0.994874665,-0.462296197,0.754530434,0.024186117,0.898868244,-0.54700845,0.305358758,0.421465347,-0.198105336,0.290345581,-0.892164211,-0.009591673,-0.500722719,-0.303058277,0.481772344,-0.277685984,-0.651267142,0.948461701,-0.155663079,-0.873460498,-0.842825966,-0.588267553,-0.424957128,-0.23706078,0.381875476,-0.226529307,0.873459977,0.633314551,-0.333808601,0.351263526,0.966871562,0.918398599,0.339887811,0.785923295,-0.304884543,-0.724958112,-0.62301361,-0.317867298,0.969554144,0.503262478,0.666120087,-0.715938874,-0.970041605,-0.773052958,0.423890885,0.713080374,0.723208661,0.591608227,-0.04579178,0.849387237,-0.372618571,0.282444985,0.167994509,-0.465868054,0.754678707,0.820504223,-0.393390635,-0.337141396,-0.484116745,-0.941271013,-0.747738257,-0.800797712,-0.675638517,-0.698237213,-0.375219198,0.119601233,-0.303912179,-0.301169235,0.227411107,-0.859540715,0.195141153,0.319968092,-0.495693094,0.050931817,0.6344444,0.189713003];
+const samples=drawStatic("ε-жадная стратегия", "#ff4040", "Действие с ε-greedy");
+function update(){const eps=Number(document.getElementById('epsilon').value);displayValue('epsValue',eps);
+  setSamples(samples,base.map((v,i)=>randomDecisions[i]<eps?randomActions[i]:v));}
+  document.getElementById('epsilon').addEventListener('input',update);update();
+</script>
+</body>
+</html>

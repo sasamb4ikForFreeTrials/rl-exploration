@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Шум Орнштейна–Уленбека</title>
+<style>
+:root { color-scheme: light; }
+* {box-sizing: border-box;}
+body {margin:0; padding:22px 20px 24px; background:#fff; color:#262626; font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif; }
+.figure {max-width:1070px;margin:0 auto;}
+svg {width:100%;height:auto;display:block;overflow:visible;}
+.param-row {display:flex;flex-wrap:wrap;gap:18px 32px;margin:5px auto 0;padding:17px 8px 0;border-top:1px solid #e7e7e7;align-items:start;justify-content:center;}
+.parameter {min-width:248px;flex:0 1 390px;}
+.parameter-top {display:flex;justify-content:space-between;align-items:baseline;gap:14px;margin-bottom:8px;}
+.parameter label {font-size:15px;font-weight:600;}
+.parameter output {font:600 15px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace;font-variant-numeric:tabular-nums;}
+.parameter input {width:100%;cursor:pointer;accent-color:#555;display:block;margin:0;height:17px;}
+.parameter small {display:block;font-size:12px;line-height:1.45;color:#656565;margin-top:7px;}
+@media (max-width:600px) {body{padding:9px 5px 18px}.param-row{margin:0 9px;padding-top:12px;gap:13px}.parameter{min-width:210px}.parameter label{font-size:13px}.parameter small{font-size:11px}}
+</style>
+</head>
+<body>
+<main class="figure">
+<svg id="chart"></svg>
+<section class="param-row" aria-label="Параметры шума"><div class="parameter"><div class="parameter-top"><label for="alpha">α</label><output id="alphaValue">0.85</output></div><input id="alpha" type="range" min="0" max="0.99" step="0.01" value="0.85" aria-label="α"><small>Память шума: насколько сильно сохраняется предыдущее отклонение.</small></div><div class="parameter"><div class="parameter-top"><label for="sigma">σ</label><output id="sigValue">0.08</output></div><input id="sigma" type="range" min="0" max="0.3" step="0.01" value="0.08" aria-label="σ"><small>Стандартное отклонение нового случайного слагаемого на каждом шаге.</small></div></section>
+</main>
+<script>
+
+'use strict';
+const NS='http://www.w3.org/2000/svg';
+const svg = document.getElementById('chart');
+const W=1000,H=470, m={left:88,right:20,top:54,bottom:72};
+const pw=W-m.left-m.right, ph=H-m.top-m.bottom;
+const X=t=>m.left+(t/150)*pw;
+const Y=v=>m.top+((1.2-v)/2.4)*ph;
+const T=150;
+const base=Array.from({length:T},(_,i)=>0.5*Math.sin(2*Math.PI*i/T));
+function el(tag,attrs={},parent=svg){
+ const e=document.createElementNS(NS,tag);
+ for(const [key,value] of Object.entries(attrs)){if(key==='text')e.textContent=value;else e.setAttribute(key,value);}
+ parent.appendChild(e);return e;
+}
+function line(x1,y1,x2,y2,stroke,width=1,dash=null,parent=svg){
+ const p=el('line',{x1,y1,x2,y2,stroke,'stroke-width':width},parent);
+ if(dash)p.setAttribute('stroke-dasharray',dash);
+ return p;
+}
+function textAt(x,y,t,extra={},parent=svg){
+ return el('text',{x,y,text:t,'font-family':'DejaVu Sans, Arial, sans-serif','font-size':15,fill:'#222',...extra},parent);
+}
+function drawStatic(title, sampleColor, sampleLabel){
+ svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+ svg.setAttribute('role','img');
+ svg.setAttribute('aria-label',title+': сравнение действия политики и действия с шумом');
+ const defs=el('defs');const cl=el('clipPath',{id:'plotClip'},defs);
+ el('rect',{x:m.left,y:m.top,width:pw,height:ph},cl);
+ el('rect',{x:m.left,y:m.top,width:pw,height:ph,fill:'#fff'});
+ for(let v=-1;v<=1.0001;v+=.5){
+  const yy=Y(v);line(m.left,yy,m.left+pw,yy,'#e2e2e2',1);
+  textAt(m.left-12,yy+5,Math.abs(v)<1e-8?'0.0':v.toFixed(1).replace('-', '−'),{'text-anchor':'end','font-size':15});
+ }
+ for(let t=0;t<=140;t+=20){
+  const xx=X(t);line(xx,m.top,xx,m.top+ph,'#e7e7e7',1);
+  textAt(xx,m.top+ph+26,String(t),{'text-anchor':'middle','font-size':14});
+ }
+ line(m.left,Y(0),m.left+pw,Y(0),'#aaa',1.4,'6 5');
+ el('rect',{x:m.left,y:m.top,width:pw,height:ph,fill:'none',stroke:'#444','stroke-width':1.2});
+ textAt(W/2,33,title,{'text-anchor':'middle','font-size':23,'font-weight':'400'});
+ textAt(W/2,H-17,'Время (шаги)',{'text-anchor':'middle','font-size':17});
+ const ylabel=textAt(26,m.top+ph/2,'Значение действия',{'text-anchor':'middle','font-size':17});
+ ylabel.setAttribute('transform',`rotate(-90 26 ${m.top+ph/2})`);
+ const pathsG=el('g',{'clip-path':'url(#plotClip)'});
+ const basePath=el('path',{fill:'none',stroke:'#161616','stroke-width':2.25,'stroke-dasharray':'8 5','stroke-linecap':'round','stroke-linejoin':'round'},pathsG);
+ basePath.setAttribute('d',path(base));
+ const samplePath=el('path',{fill:'none',stroke:sampleColor,'stroke-width':1.75,'stroke-opacity':'.9','stroke-linejoin':'round','stroke-linecap':'round'},pathsG);
+ // Same compact legend arrangement as matplotlib's upper-right legend.
+ const legendWidth=Math.max(229, Math.min(269, Math.round(sampleLabel.length*6.7+68)));
+ const lx=m.left+pw-legendWidth-10,ly=m.top+10;
+ el('rect',{x:lx,y:ly,width:legendWidth,height:62,fill:'#fff',stroke:'#d7d7d7','stroke-width':1,rx:3});
+ line(lx+13,ly+22,lx+43,ly+22,'#171717',2.6,'8 5');
+ textAt(lx+51,ly+27,'Действие политики π(s)',{'font-size':14});
+ line(lx+13,ly+45,lx+43,ly+45,sampleColor,2.6);
+ textAt(lx+51,ly+50,sampleLabel,{'font-size':14});
+ return samplePath;
+}
+function path(vals){return vals.map((v,i)=>`${i?'L':'M'}${X(i).toFixed(2)} ${Y(v).toFixed(2)}`).join(' ')}
+function setSamples(p,vals){p.setAttribute('d',path(vals));}
+function displayValue(id,value,digits=2){document.getElementById(id).textContent=Number(value).toFixed(digits);}
+
+const zOU=[0.0,0.496714153,-0.138264301,0.647688538,1.523029856,-0.234153375,-0.234136957,1.579212816,0.767434729,-0.469474386,0.542560044,-0.463417693,-0.465729754,0.241962272,-1.913280245,-1.724917833,-0.562287529,-1.01283112,0.314247333,-0.908024076,-1.412303701,1.465648769,-0.2257763,0.067528205,-1.424748186,-0.544382725,0.11092259,-1.150993577,0.375698018,-0.60063869,-0.29169375,-0.601706612,1.852278185,-0.013497225,-1.057710929,0.822544912,-1.22084365,0.208863595,-1.959670124,-1.328186049,0.196861236,0.73846658,0.171368281,-0.115648282,-0.301103696,-1.47852199,-0.719844208,-0.460638771,1.057122226,0.34361829,-1.763040155,0.324083969,-0.38508228,-0.676922,0.611676289,1.030999522,0.931280119,-0.839217523,-0.309212376,0.331263431,0.975545127,-0.479174238,-0.185658977,-1.106334974,-1.196206624,0.812525822,1.356240029,-0.072010122,1.003532898,0.361636025,-0.645119755,0.361395606,1.538036566,-0.035826039,1.564643656,-2.619745104,0.821902504,0.087047068,-0.29900735,0.091760777,-1.987568915,-0.219671888,0.357112572,1.477894045,-0.518270218,-0.808493603,-0.501757044,0.915402118,0.32875111,-0.529760204,0.513267433,0.097077549,0.968644991,-0.702053094,-0.327662147,-0.392108153,-1.463514948,0.296120277,0.261055272,0.005113457,-0.234587133,-1.415370742,-0.420645323,-0.342714517,-0.802277269,-0.161285712,0.404050857,1.886185901,0.174577813,0.257550391,-0.074445916,-1.918771215,-0.026513875,0.06023021,2.463242112,-0.192360965,0.301547342,-0.03471177,-1.168678038,1.142822815,0.751933033,0.791031947,-0.909387455,1.402794311,-1.401851063,0.586857094,2.190455626,-0.990536325,-0.56629773,0.099651365,-0.503475654,-1.550663431,0.068562975,-1.062303714,0.473592431,-0.919424234,1.549934405,-0.783253292,-0.322061516,0.813517217,-1.230864316,0.227459935,1.307142754,-1.607483235,0.184633859,0.259882794,0.781822872,-1.236950711,-1.320456613,0.521941566];
+const samples=drawStatic("Шум Орнштейна–Уленбека", "#29923b", "Действие + шум О-У");
+function update(){const alpha=Number(document.getElementById('alpha').value),sig=Number(document.getElementById('sigma').value);
+  displayValue('alphaValue',alpha);displayValue('sigValue',sig);
+  const noise=new Array(T).fill(0);
+  for(let i=1;i<T;i++)noise[i]=alpha*noise[i-1]+sig*zOU[i];
+  setSamples(samples,base.map((v,i)=>v+noise[i]));}
+  document.getElementById('alpha').addEventListener('input',update);
+  document.getElementById('sigma').addEventListener('input',update);
+  update();
+</script>
+</body>
+</html>
