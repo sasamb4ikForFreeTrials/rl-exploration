@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>Стратегии исследования среды</title>
+<style>
+:root { --ink:#16243d; --ink-soft:#50617e; --muted:#8793aa; --line:#e4e9f2; --base:#f5f8fd; --white:#fff; --blue:#376bf2; --blue-bg:#edf3ff; --orange:#e7793e; --teal:#0ba3a3; --violet:#8256d9; --shadow:0 18px 50px rgba(25,44,81,.07) }
+* {box-sizing:border-box} html {background:#f7f9fd} body {margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Arial,sans-serif; -webkit-font-smoothing:antialiased; color:var(--ink);background:linear-gradient(135deg,#f8faff,#f4f7fc); min-height:100vh}
+button,input {font:inherit} button {cursor:pointer} button:focus-visible,input:focus-visible {outline:3px solid #83a9ff;outline-offset:3px}
+.app {max-width:1380px;margin:0 auto;padding:30px 32px 28px}
+.kicker {display:flex;align-items:center;gap:11px;color:var(--blue);font-weight:750;font-size:12px;letter-spacing:.11em;text-transform:uppercase}
+.kicker .mark {width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;background:var(--blue);border-radius:9px;color:#fff;font-size:17px;font-weight:800;letter-spacing:0}
+.heading {display:flex;justify-content:space-between;align-items:flex-end;gap:18px;margin-top:13px;margin-bottom:22px}
+h1 {margin:0;font-size:clamp(25px,3vw,34px);font-weight:790;letter-spacing:-.047em;line-height:1.12}
+.subtitle {color:var(--ink-soft);font-size:14px;margin:10px 0 0;line-height:1.55;max-width:760px}
+.step {display:flex;align-items:center;gap:9px;padding:11px 14px;border:1px solid #e5eaf2;background:#fff;border-radius:12px;font-size:12px;color:#687691;white-space:nowrap;box-shadow:0 4px 15px rgba(35,54,92,.03)}
+.step b {font-weight:800;color:var(--blue)}
+.layout {display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:stretch}
+.scene {position:relative;overflow:hidden;min-width:0;min-height:560px;border:1px solid #dfe7f2;border-radius:21px;background:radial-gradient(ellipse at 57% 38%,#ffffff 2%,#f7faff 60%,#edf3fb 120%);box-shadow:var(--shadow)}
+.scene::before {content:"";position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(#e9eff8 1px, transparent 1px),linear-gradient(90deg,#e9eff8 1px,transparent 1px);background-size:36px 36px;mask-image:linear-gradient(180deg,rgba(0,0,0,.35),transparent 75%);opacity:.48}
+canvas {position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}canvas.dragging {cursor:grabbing}
+.scene-top,.scene-bottom {position:absolute;display:flex;align-items:center;gap:8px;z-index:2;pointer-events:none}
+.scene-top {top:17px;left:18px;right:18px;justify-content:space-between}
+.scene-bottom {bottom:18px;left:18px;right:18px;justify-content:space-between;align-items:flex-end}
+.pill {display:inline-flex;align-items:center;gap:7px;padding:8px 10px;border:1px solid #dfe7f1;background:rgba(255,255,255,.86);backdrop-filter:blur(8px);border-radius:9px;font-size:11px;font-weight:680;color:#5e708c}
+.drag-hint {color:#7a88a0;font-weight:550}
+.legend {display:flex;align-items:center;gap:15px;background:rgba(255,255,255,.88);border:1px solid #e0e7f0;padding:11px 13px;border-radius:11px;backdrop-filter:blur(7px);flex-wrap:wrap}
+.legend-item {display:flex;align-items:center;gap:7px;font-weight:650;font-size:11px;color:#586984;white-space:nowrap}
+.dot {display:block;width:9px;height:9px;border-radius:99px;background:var(--blue);box-shadow:0 0 0 3px rgba(55,107,242,.12)}
+.dot.orange {background:var(--orange);box-shadow:0 0 0 3px #e7793e25}.dot.teal {background:var(--teal);box-shadow:0 0 0 3px #0ba3a326}.dot.violet {background:var(--violet);box-shadow:0 0 0 3px #8256d925}
+.viewreset {pointer-events:auto;background:rgba(255,255,255,.92);border:1px solid #dfe6f0;border-radius:10px;padding:10px 12px;color:#61718a;font-weight:700;font-size:11px;transition:background .2s}.viewreset:hover {background:#edf3ff}
+.panel {display:flex;flex-direction:column;gap:18px;min-width:0;padding:23px 22px 21px;background:#fff;border:1px solid #e3eaf3;border-radius:21px;box-shadow:var(--shadow)}
+.panel-header {display:flex;gap:10px;align-items:center;justify-content:space-between}
+.panel-header h2 {margin:0;font-size:17px;letter-spacing:-.025em;font-weight:780}
+.count {font-size:11px;border-radius:7px;color:#71809a;background:#f1f5fb;padding:6px 8px;font-weight:750}
+.intro {font-size:12.5px;color:#61708b;line-height:1.65;margin:0}
+.method-buttons {display:flex;flex-direction:column;gap:9px}
+.method {width:100%;border:1px solid #e0e7f1;background:#fff;display:flex;justify-content:space-between;align-items:center;border-radius:12px;text-align:left;padding:14px 13px 13px;transition:all .2s;gap:8px}
+.method:hover {border-color:#bbcaea;background:#f9fbff;transform:translateY(-1px)}
+.method:active {transform:translateY(0)}
+.method.active.epsilon {background:#fff5ee;border-color:#efb793}.method.active.gaussian {background:#edfbfa;border-color:#a3e1df}.method.active.ou {background:#f6f1ff;border-color:#c4aeef}
+.method-name {font-size:13px;font-weight:780;color:#273958;display:block}.method-desc {font-size:11px;color:#75859d;line-height:1.55;display:block;margin-top:3px}
+.go-icon {font-weight:900;font-size:17px;color:#8a9ab0;flex:none;width:28px;height:28px;display:grid;place-items:center;border-radius:9px;background:#f3f6fb}.method.active.epsilon .go-icon {color:var(--orange);background:#ffe7d7}.method.active.gaussian .go-icon {color:var(--teal);background:#d8f7f4}.method.active.ou .go-icon {color:var(--violet);background:#eadfff}
+.sep {height:1px;background:var(--line);width:100%}
+.controls {display:flex;flex-direction:column;gap:18px}
+.control {display:flex;flex-direction:column;gap:10px}
+.control-heading {display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.control-heading label {color:#3d4f6d;font-weight:730;font-size:12px}
+.value {font-weight:830;color:#285dcb;font-variant-numeric:tabular-nums;font-size:13px}
+input[type=range] {width:100%;height:7px;appearance:none;border-radius:99px;background:#e9eef6;accent-color:var(--blue);cursor:pointer;outline-offset:8px}
+input[type=range]::-webkit-slider-thumb {appearance:none;border:none;background:var(--blue);border-radius:50%;height:17px;width:17px;box-shadow:0 0 0 4px #dfe9ff}
+input[type=range]::-moz-range-thumb {border:none;background:var(--blue);border-radius:50%;height:17px;width:17px;box-shadow:0 0 0 4px #dfe9ff}
+.range {display:flex;justify-content:space-between;font-size:10px;color:#9ca8b9;margin-top:-3px}
+.param-note {font-size:11px;color:#738198;line-height:1.55;margin:-5px 0 0}
+.two-actions {display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.secondary {border:1px solid #dfe7f0;background:#f8faff;color:#405777;border-radius:10px;padding:10px;font-weight:720;font-size:11px;transition:background .2s}.secondary:hover {background:#eff4ff}
+.hint-card {margin-top:auto;background:#f6f8fe;border:1px solid #e8edf8;border-radius:12px;padding:13px 13px 12px}
+.hint-card strong {font-size:11px;letter-spacing:.02em;color:#324965;display:block;margin-bottom:5px}
+.hint-card p {font-size:11px;color:#63758e;line-height:1.6;margin:0}
+.metrics {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:17px}
+.metric {background:#fff;border:1px solid #e3eaf4;border-radius:15px;padding:14px 17px;min-width:0}
+.metric label {display:block;font-size:10px;color:#7b88a0;font-weight:750;letter-spacing:.025em;margin-bottom:6px}
+.metric .val {font-size:17px;font-weight:790;letter-spacing:-.02em;color:#253857;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.metric .val.sm {font-size:13px;letter-spacing:0}
+.footer {font-size:11px;line-height:1.5;color:#9aa5b5;margin:15px 2px 0}
+@media(max-width:950px){.app {padding:19px 18px 24px}.layout {grid-template-columns:1fr}.scene {min-height:490px}.panel {padding:20px}.method-buttons {display:grid;grid-template-columns:repeat(var(--methods),minmax(0,1fr))}.method {padding:12px}.method-desc {font-size:10px}}
+@media(max-width:650px){.app {padding:14px 10px 20px}.heading {align-items:flex-start;flex-direction:column;margin-bottom:16px;gap:11px}.scene {min-height:440px}.scene-top {top:12px;left:10px;right:10px}.scene-bottom {bottom:10px;left:9px;right:9px}.drag-hint {display:none}.pill {font-size:9px;padding:7px}.legend {gap:9px;padding:9px}.legend-item {font-size:10px}.panel {padding:18px 16px}.method-buttons {display:flex}.metrics {gap:6px}.metric {padding:11px 10px}.metric .val {font-size:14px}.metric .val.sm {font-size:10px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after {animation:none!important;transition:none!important}}
+</style>
+</head>
+<body data-stage="1">
+<main class="app">
+ 
+ <header class="heading">
+  <div><h1>Стратегии исследования среды</h1><p class="subtitle">Нажми на ε-greedy и посмотри, насколько далеко от действия Actor может оказаться случайная точка.</p></div>
+  <div class="step">Визуализация <b>01 / 03</b></div>
+ </header>
+ <section class="layout" aria-label="Интерактивная визуализация способов исследования среды">
+  <div class="scene" id="scene">
+   <canvas id="world" aria-label="Интерактивное трёхмерное пространство действий: куб от минус единицы до единицы по трём координатам"></canvas>
+   <div class="scene-top"><span class="pill">ПРОСТРАНСТВО ДЕЙСТВИЙ <b>[-1, 1]³</b></span></div>
+   <div class="scene-bottom">
+    <div class="legend"><span class="legend-item"><i class="dot"></i>Действие Actor</span><span class="legend-item"><i id="sample-dot" class="dot orange"></i><span id="point-label">Случайное действие</span></span></div>
+    <button id="reset-camera" class="viewreset" type="button">↺ Сбросить вид</button>
+   </div>
+  </div>
+  <aside class="panel">
+    <div class="panel-header"><h2>Выбери стратегию</h2><span class="count">1 МЕТОД</span></div>
+    <p class="intro">Нажми на метод, чтобы получить новое действие. Синяя точка — фиксированное действие Actor; меняется только способ исследования.</p>
+    <div class="method-buttons" style="--methods:1">
+      <button type="button" class="method epsilon" id="btn-epsilon" aria-label="Сэмплировать действие epsilon-greedy"><span><span class="method-name">ε-greedy</span><span class="method-desc">Случайная точка во всём кубе</span></span><span class="go-icon">↗</span></button>
+      
+      
+    </div>
+    <div class="sep"></div>
+    <div class="controls">
+      <div class="control"><div class="control-heading"><label for="epsilon">Вероятность случайного действия · ε</label><output id="epsilon-value" class="value">1.00</output></div><input id="epsilon" type="range" min="0" max="1" step="0.05" value="1"><div class="range"><span>0 — только Actor</span><span>1 — всегда случайно</span></div></div>
+      
+      
+    </div>
+    
+    <div class="hint-card"><strong id="hint-title">Зачем это важно?</strong><p id="hint-text">При ε-greedy исследовательское действие выбирается из всего пространства, а не только рядом с текущим действием.</p></div>
+  </aside>
+ </section>
+ <section class="metrics" aria-label="Результаты последнего сэмплирования">
+  <div class="metric"><label>ПОСЛЕДНИЙ МЕТОД</label><div class="val sm" id="metric-method">ε-greedy</div></div>
+  <div class="metric"><label>РАССТОЯНИЕ ОТ ACTOR</label><div class="val" id="metric-distance">—</div></div>
+  <div class="metric"><label>КООРДИНАТЫ ДЕЙСТВИЯ</label><div class="val sm" id="metric-coords">—</div></div>
+ </section>
+ 
+</main>
+<script>
+'use strict';
+const STAGE=1, CUBE=1, BASE=[0.12,-0.10,0.08];
+const el=id=>document.getElementById(id);
+const cv=el('world'), scene=el('scene'), ctx=cv.getContext('2d',{alpha:true});
+let W=800,H=540,dpr=1;
+const cam={yaw:.68,pitch:.35,dist:6};
+const state={mode: STAGE===3?'ou':STAGE===2?'gaussian':'epsilon', sample:null, eps:1, sigma:.16, alpha:.9, eta:[0,0,0], trail:[BASE.slice()], n:0, lastRandom:true, birth:0};
+const HEX={epsilon:'#eb8248',gaussian:'#0ba8a4',ou:'#8657d9'};
+const random=Math.random;
+function randn(){let a=Math.max(random(),1e-12),b=random();return Math.sqrt(-2*Math.log(a))*Math.cos(2*Math.PI*b)}
+function boxSample(){return [2*random()-1,2*random()-1,2*random()-1]}
+function vecAdd(a,b){return a.map((x,i)=>x+b[i])}
+function mul(a,x){return a.map(v=>v*x)}
+function clampPoint(p){return p.map(x=>Math.max(-1,Math.min(1,x)))}
+function distance(a,b){return Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2])}
+function fmt(v){return (v>=0?'+':'')+v.toFixed(2)}
+function textCoords(p){return p.map(fmt).join('   ·   ')}
+function getBasis(){const y=cam.yaw,p=cam.pitch;return {right:[Math.cos(y),0,-Math.sin(y)],up:[-Math.sin(p)*Math.sin(y),Math.cos(p),-Math.sin(p)*Math.cos(y)],toward:[Math.cos(p)*Math.sin(y),Math.sin(p),Math.cos(p)*Math.cos(y)]}}
+function dot(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]}
+function project(v){const b=getBasis(), z=dot(v,b.toward), d=cam.dist/(cam.dist-z), scale=Math.min(W*.29,H*.25)*d;return {x:W*.50+dot(v,b.right)*scale,y:H*.49-dot(v,b.up)*scale,z,s:scale}}
+function resize(){let r=cv.getBoundingClientRect();W=r.width;H=r.height;dpr=Math.min(window.devicePixelRatio||1,2);cv.width=Math.max(1,Math.round(W*dpr));cv.height=Math.max(1,Math.round(H*dpr));ctx.setTransform(dpr,0,0,dpr,0,0);draw()}
+function line3(a,b,color,width=1,dash=null){let p=project(a),q=project(b);ctx.beginPath();ctx.setLineDash(dash||[]);ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.lineWidth=width;ctx.strokeStyle=color;ctx.stroke();ctx.setLineDash([])}
+function text2(str,x,y,opts={}){ctx.save();ctx.font=opts.font||'700 12px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif';ctx.textAlign=opts.align||'left';ctx.textBaseline='middle';ctx.fillStyle=opts.color||'#536986';ctx.fillText(str,x,y);ctx.restore()}
+function canvasPill(str,x,y,accent){ctx.save();ctx.font='700 11px -apple-system,Segoe UI,sans-serif';let width=ctx.measureText(str).width+17,height=25;
+ const px=Math.max(8,Math.min(W-width-8,x)),py=Math.max(43,Math.min(H-height-54,y));
+ ctx.shadowColor='rgba(37,55,89,.10)';ctx.shadowBlur=16;ctx.fillStyle='rgba(255,255,255,.95)';ctx.strokeStyle='#e1e7f2';ctx.lineWidth=1;
+ ctx.beginPath();ctx.roundRect(px,py,width,height,8);ctx.fill();ctx.shadowBlur=0;ctx.stroke();ctx.fillStyle=accent;ctx.fillText(str,px+8,py+13);ctx.restore();}
+function drawGrid(){const step=.5;for(let u=-1;u<=1.001;u+=step){line3([u,-1,-1],[u,-1,1],'rgba(88,123,176,.105)',.85);line3([-1,-1,u],[1,-1,u],'rgba(88,123,176,.105)',.85)}}
+function drawCubeFaces(){const faces=[{id:0,p:[[-1,-1,-1],[-1,-1,1],[-1,1,1],[-1,1,-1]]},{id:1,p:[[1,-1,-1],[1,-1,1],[1,1,1],[1,1,-1]]},{id:2,p:[[-1,-1,-1],[1,-1,-1],[1,-1,1],[-1,-1,1]]},{id:3,p:[[-1,1,-1],[1,1,-1],[1,1,1],[-1,1,1]]},{id:4,p:[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1]]},{id:5,p:[[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]]}];
+ faces.sort((a,b)=>{let pa=a.p.reduce((sum,x)=>sum+project(x).z,0);let pb=b.p.reduce((sum,x)=>sum+project(x).z,0);return pa-pb});
+ faces.forEach((f,i)=>{ctx.beginPath();f.p.forEach((v,j)=>{const p=project(v);j?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)});ctx.closePath();ctx.fillStyle=i>2?'rgba(105,137,184,.018)':'rgba(89,129,189,.008)';ctx.fill()});}
+function drawCubeEdges(){const edges=[];for(let axis=0;axis<3;axis++){for(let i of [-1,1])for(let j of [-1,1]){let a=[-1,-1,-1],b=[-1,-1,-1],axes=[0,1,2].filter(t=>t!==axis);a[axes[0]]=b[axes[0]]=i;a[axes[1]]=b[axes[1]]=j;a[axis]=-1;b[axis]=1;edges.push({a,b,z:(project(a).z+project(b).z)/2})}}
+ edges.sort((a,b)=>a.z-b.z);edges.forEach(e=>{let alpha=e.z>0?'rgba(81,112,164,.46)':'rgba(88,125,185,.22)';line3(e.a,e.b,alpha,e.z>0?1.5:1.0)});
+ for(let name of [['a₁',[1.24,-1,-1]],['a₂',[-1,1.24,-1]],['a₃',[-1,-1,1.24]]]){let q=project(name[1]);text2(name[0],q.x,q.y,{font:'750 14px -apple-system,Segoe UI,sans-serif',color:'#8394ae',align:'center'})}}
+function drawGlassSphere(center,r,kind){if(r<=0)return;let p=project(center),rr=p.s*r;let color=kind==='ou'?'130,84,217':'10,168,164';
+ ctx.save();let g=ctx.createRadialGradient(p.x-rr*.28,p.y-rr*.33,rr*.13,p.x,p.y,rr);g.addColorStop(0,`rgba(${color},.08)`);g.addColorStop(.72,`rgba(${color},.125)`);g.addColorStop(1,`rgba(${color},.20)`);
+ ctx.beginPath();ctx.arc(p.x,p.y,rr,0,2*Math.PI);ctx.fillStyle=g;ctx.fill();ctx.lineWidth=1.5;ctx.strokeStyle=`rgba(${color},.43)`;ctx.stroke();ctx.restore();
+ // Three translucent great circles make the volume read as a 3D ball.
+ for(let axis=0;axis<3;axis++){ctx.beginPath();for(let t=0;t<=72;t++){let a=t/72*Math.PI*2,v=[0,0,0];v[axis]=0;v[(axis+1)%3]=r*Math.cos(a);v[(axis+2)%3]=r*Math.sin(a);let q=project(vecAdd(center,v));t?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)}ctx.strokeStyle=`rgba(${color},.20)`;ctx.lineWidth=1;ctx.stroke();}
+}
+function point3(v,color,size=7,glow=true){let p=project(v);const rad=Math.max(4,size*p.s/170);ctx.save();if(glow){ctx.shadowColor=color;ctx.shadowBlur=17;}
+ let g=ctx.createRadialGradient(p.x-rad*.3,p.y-rad*.45,1,p.x,p.y,rad);g.addColorStop(0,'#ffffff');g.addColorStop(.27,color);g.addColorStop(1,color);ctx.beginPath();ctx.arc(p.x,p.y,rad,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();ctx.shadowBlur=0;ctx.lineWidth=2;ctx.strokeStyle='#ffffff';ctx.stroke();ctx.restore();return p;}
+function drawOUPath(){let hist=state.trail; if(hist.length<2)return;for(let i=1;i<hist.length;i++){let k=i/(hist.length-1);line3(hist[i-1],hist[i],`rgba(130,84,217,${(0.13+k*.72).toFixed(3)})`,1.3+k*1.4);}
+ for(let i=0;i<hist.length-1;i++){let p=project(hist[i]),k=i/Math.max(1,hist.length-1);ctx.beginPath();ctx.arc(p.x,p.y,Math.max(2.0,3.5*project(hist[i]).s/170),0,Math.PI*2);ctx.fillStyle=`rgba(130,84,217,${(.15+k*.6).toFixed(3)})`;ctx.fill();}
+}
+function draw(){if(!W||!H)return;ctx.clearRect(0,0,W,H);drawGrid();drawCubeFaces();
+ if(STAGE>=2){drawGlassSphere(BASE,Math.min(2.8*state.sigma,.98),'gaussian')}
+ if(STAGE===3&&state.mode==='ou'&&state.trail.length>1){drawOUPath()}
+ if(state.sample&&state.mode!=='ou'){line3(BASE,state.sample,HEX[state.mode],1.65,[4,6])}
+ drawCubeEdges();
+ let bp=point3(BASE,'#376bf2',8.7,true);canvasPill('πθ(s)',bp.x+12,bp.y-38,'#376bf2');
+ if(state.sample){let color=HEX[state.mode],sp=point3(state.sample,color,8,true);canvasPill(state.mode==='ou'?'aₜ · OU':state.mode==='gaussian'?'aₜ · Gaussian':state.lastRandom?'aₜ · случайное':'aₜ · Actor',sp.x+12,sp.y+14,color)}
+}
+function updateUI(){el('epsilon-value').textContent=state.eps.toFixed(2);if(STAGE>=2)el('sigma-value').textContent=state.sigma.toFixed(2);if(STAGE===3)el('alpha-value').textContent=state.alpha.toFixed(2);
+ for(let id of ['epsilon','gaussian','ou']){let button=el('btn-'+id);if(button){button.classList.toggle('active',state.mode===id);button.setAttribute('aria-pressed',String(state.mode===id));}}
+ el('sample-dot').className='dot '+(state.mode==='epsilon'?'orange':state.mode==='gaussian'?'teal':'violet');el('point-label').textContent=state.mode==='epsilon'?'Выбранное действие':state.mode==='gaussian'?'Gaussian sample':'OU sample';
+ let labels={epsilon:'ε-greedy',gaussian:'Gaussian noise',ou:'OU noise'};el('metric-method').textContent=labels[state.mode];
+ el('metric-distance').textContent=state.sample?distance(BASE,state.sample).toFixed(3):'—';el('metric-coords').textContent=state.sample?textCoords(state.sample):'—';
+ const hint={epsilon:{title:'Что происходит?',text:state.lastRandom?'Агент заменил действие Actor случайной точкой из всего куба. Следующий сэмпл может оказаться далеко от синей точки.':'Случайная замена не произошла: агент выполнил действие Actor.'},gaussian:{title:'Что происходит?',text:'Шар показывает область типичных гауссовских отклонений. Уменьшай или увеличивай σ, чтобы менять масштаб локального исследования.'},ou:{title:'',text:''}}[state.mode];
+ el('hint-title').textContent=hint.title;el('hint-text').textContent=hint.text; if(STAGE===3)el('ou-actions').hidden=state.mode!=='ou'; draw();}
+function epsSample(forceRandom=false){state.mode='epsilon';state.lastRandom=forceRandom||random()<state.eps;state.sample=state.lastRandom?boxSample():BASE.slice();state.n++;updateUI()}
+function gaussianSample(){state.mode='gaussian';state.sample=clampPoint(vecAdd(BASE,[randn()*state.sigma,randn()*state.sigma,randn()*state.sigma]));state.n++;updateUI()}
+function ouStep(count=1){state.mode='ou';for(let k=0;k<count;k++){const f=state.sigma*Math.sqrt(Math.max(0,1-state.alpha**2));state.eta=state.eta.map(v=>state.alpha*v+f*randn());state.sample=clampPoint(vecAdd(BASE,state.eta));state.trail.push(state.sample.slice());if(state.trail.length>46)state.trail.shift();state.n++;}updateUI()}
+function resetOU(){state.eta=[0,0,0];state.trail=[BASE.slice()];state.sample=BASE.slice();state.mode='ou';updateUI()}
+function resetCamera(){cam.yaw=.68;cam.pitch=.35;cam.dist=6;draw()}
+el('btn-epsilon').addEventListener('click',()=>epsSample());
+if(STAGE>=2)el('btn-gaussian').addEventListener('click',gaussianSample);
+if(STAGE===3){el('btn-ou').addEventListener('click',()=>ouStep(1));el('ou-ten').addEventListener('click',()=>ouStep(10));el('ou-reset').addEventListener('click',resetOU);}
+el('epsilon').addEventListener('input',e=>{state.eps=+e.target.value;updateUI()});
+if(STAGE>=2)el('sigma').addEventListener('input',e=>{state.sigma=+e.target.value;updateUI()});
+if(STAGE===3)el('alpha').addEventListener('input',e=>{state.alpha=+e.target.value;updateUI()});
+el('reset-camera').addEventListener('click',resetCamera);
+let drag=null;cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};cv.classList.add('dragging');cv.setPointerCapture(e.pointerId)});
+cv.addEventListener('pointermove',e=>{if(!drag)return;let dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag={x:e.clientX,y:e.clientY};cam.yaw+=dx*.007;cam.pitch=Math.max(-1.23,Math.min(1.23,cam.pitch+dy*.006));draw()});
+function stopDrag(){drag=null;cv.classList.remove('dragging')};cv.addEventListener('pointerup',stopDrag);cv.addEventListener('pointercancel',stopDrag);
+cv.addEventListener('wheel',e=>{e.preventDefault();cam.dist=Math.min(9.4,Math.max(4.3,cam.dist+e.deltaY*.004));draw()},{passive:false});
+const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(scene);window.addEventListener('resize',resize);
+if(STAGE===1)epsSample(true);else if(STAGE===2)gaussianSample();else ouStep(10);resize();
+</script>
+</body>
+</html>
